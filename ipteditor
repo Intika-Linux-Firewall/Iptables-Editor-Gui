@@ -1,0 +1,347 @@
+#! /usr/bin/ruby
+
+#
+# ipteditor
+# Editor de regras de firewall para o iptables
+# iptables firewall rules' editor
+# 
+# Distribuído de acordo com a Licença Geral Pública do GNU - GPL
+# Distributed under the terms of GNU General Public License - GPL
+#
+# Copyleft 2009, by angico.
+
+#
+# Dependências externas
+# External dependencies
+require 'rubygems'
+require 'getoptlong'
+require 'gettext'
+require 'gtk2'
+
+#
+# Variáveis globais
+# Global variables
+$versao = '[0.0.5]'
+$KCODE = 'u'
+$LOAD_PATH << File.dirname(File.expand_path($0)) + File::SEPARATOR + 'ipteditor-modules'
+
+#
+# Dependências internas
+# Internal dependencies
+require 'config'
+require 'tablesnotebook'
+require 'ruleslist'
+require 'dlgnewchain'
+require 'dlgconfirm'
+require 'iptif'
+require 'dlgchainreferenced'
+
+#
+# Onde tudo começa...
+# Where it all begins...
+class IPTEditor < Gtk::Window
+	include GetText
+	#
+	def initialize
+		@arqCfg = 'ipteditor.yaml'
+		super(Gtk::Window::TOPLEVEL)
+		loadConfig
+		set_default_size(@config.dimOmis[0], @config.dimOmis[1])
+		set_title "IPTEditor #{$versao}"
+		
+		signal_connect('configure-event') do |jan, ev|
+			@config.dimOmis = size
+			false
+		end
+		signal_connect('delete-event') {quit}
+		signal_connect('destroy') { reallyQuit }
+		
+		add(@qv = Gtk::VBox.new(false, 5))
+		
+		addToolbar
+		addNotebook
+		
+		$changed = false
+	end
+	#
+	def loadConfig
+		@config = Configuracao.new(@arqCfg)
+	end
+	#
+	def saveConfig
+		@config.salva(@arqCfg)
+	end
+	
+	#
+	def quit
+		saveConfig
+
+		if $changed
+			# apresenta diálogo de confirmação, se tiver havido alterações
+			# show confirmation dialog, in case there have been changes
+			dlg = DlgConfirm.new(_('Discard changes?'))
+			dlg.run do |r|
+				if r == Gtk::Dialog::RESPONSE_OK
+					destroy
+				end
+			end
+			dlg.destroy
+
+		else
+			destroy
+		end
+		
+		true
+	end
+	
+	#
+	def reallyQuit
+		Gtk.main_quit
+	end
+	
+	#
+	def addToolbar
+		@bf = Gtk::Toolbar.new
+		@bf.show_arrow = true
+		
+		# definimos uma singularidade para esta barra de ferramentas
+		# define a singleton for this toolbar
+		def @bf.itemForName(name); item = nil; 0.upto(n_items - 1) {|n| item = nth_item(n); break if item.name == name }; item; end
+		
+		@qv.pack_start(@bf, false, true)
+		
+		n = 0
+		addTollButton(n, _('New chain'), 'cnc', Gtk::Stock::NEW)
+		addTollButton(n += 1, _('Delete chain'), 'cdc', Gtk::Stock::CLOSE)
+		
+		@bf.insert(n += 1, Gtk::SeparatorToolItem.new)
+		
+		addTollButton(n += 1, _('New rule'), 'cnr', Gtk::Stock::ADD)
+		addTollButton(n += 1, _('Delete rule'), 'cdr', Gtk::Stock::DELETE)
+		
+		@bf.insert(n += 1, Gtk::SeparatorToolItem.new)
+		
+		addTollButton(n += 1, _('Clear chain'), 'acc', Gtk::Stock::DELETE)
+		addTollButton(n += 1, _('Clear all'), 'aca', Gtk::Stock::DELETE)
+		
+		@bf.insert(n += 1, Gtk::SeparatorToolItem.new)
+		
+		addTollButton(n += 1, _('Revert'), 'ars', Gtk::Stock::REVERT_TO_SAVED)
+		addTollButton(n += 1, _('Apply'), 'aok', Gtk::Stock::REDO)
+		addTollButton(n += 1, _('Save'), 'asv', Gtk::Stock::SAVE)
+		
+		@bf.insert(n += 1, Gtk::SeparatorToolItem.new)
+		
+		addTollButton(n += 1, _('Quit'), 'aqt', Gtk::Stock::QUIT)
+	end
+	
+	#
+	def addTollButton(n, btLabel, btName, btIcon)
+		bt = Gtk::ToolButton.new(btIcon)
+		bt.label = btLabel
+		bt.name = btName
+		@bf.insert(n, bt)
+		bt.signal_connect('clicked') {|b| toolButtonClicked(b) }
+	end
+	
+	#
+	def toggleButtons()
+		puts "toggleButtons()" if $DEBUG
+		
+		# habilitamos ou desabilitamos o botão de exclusão de cadeia de acordo com a política
+		# enable or disable the delete chain button according to chain policy
+		@bf.itemForName('cdc').sensitive = @tablesNotebook.curPage.curPage.policy == 'N/A'
+		@bf.itemForName('cdr').sensitive = @tablesNotebook.curPage.curPage.list.selection.count_selected_rows > 0
+	end
+	
+	#
+	def toolButtonClicked(bt)
+		curTbl = @tablesNotebook.curPage
+		tableName = @tablesNotebook.pageTitle
+		curChain = curTbl.curPage
+		chainName = curTbl.pageTitle
+		
+		case bt.name
+		when 'cnc'
+			# nova cadeia - new chain
+			
+			puts "-->adding new chain!" if $DEBUG
+			dlg = DlgNewChain.new
+			dlg.run do |r|
+				if r == Gtk::Dialog::RESPONSE_OK
+					curTbl.addChain(dlg.text, '-', method(:toggleButtons))
+					curTbl.pageChanged
+				end
+			end
+			dlg.destroy
+			
+		when 'cdc'
+			# excluir cadeia - delete chain
+			
+			puts "-->deleting chain!" if $DEBUG
+			
+			if (refs = curTbl.findRefs(chainName)).length > 0
+				# há referências a esta cadeia: apresenta diálogo informativo
+				# there are references to this chain: present an informational dialog
+				dlg = DlgChainReferenced.new(chainName, refs)
+				dlg.run
+				dlg.destroy
+			
+			else
+				# cadeia não é referenciada alhures: procedemos a remoção
+				# chain is not referenced anywhere: proceed with deletion
+				curTbl.remove_page(curTbl.page)
+				
+			end
+			
+		when 'cnr'
+			# nova regra - new rule
+			
+			puts "-->adding new default rule!" if $DEBUG
+			
+			# adicionamos uma linha de regra omissiva
+			# add a default rule line
+			itera = curTbl.addRule(nil, true)
+			
+			# selecionamos a linha recém-adicionada
+			# select de newly added rule
+			curChain.selectRule(itera)
+			
+		when 'cdr'
+			# excluir regra - delete rule
+			
+			puts "-->deleting rules!" if $DEBUG
+			
+			# excluímos da lista todas as regras selecionadas
+			# delete from list all selected rules
+			curChain.selected_each do |mdl, path, iter|
+				mdl.remove iter
+			end
+			
+		when 'acc'
+			# limpar cadeia - clear chain
+			
+			puts "-->clearing chain!" if $DEBUG
+			curChain.clear
+			
+		when 'aca'
+			# limpar tudo - clear all
+			
+			puts "-->clearing all!" if $DEBUG
+			@tablesNotebook.clearTabs
+			
+		when 'ars'
+			# reverter - revert to saved
+			
+			puts "-->reverting!" if $DEBUG
+			@tablesNotebook.text = @text.dup
+			@tablesNotebook.setPageForName(tableName).setPageForName chainName
+			
+		when 'aok'
+			# aplicar - apply
+			
+			puts "-->applying!" if $DEBUG
+			IPTInterface.new.apply @tablesNotebook.to_s
+			
+			@tablesNotebook.setApplied
+			
+		when 'asv'
+			# salvar - save
+			
+			puts "-->saving!" if $DEBUG
+			save
+			
+		when 'aqt'
+			# sair - quit
+			
+			puts "-->quiting!" if $DEBUG
+			quit
+			
+		end
+	end
+	#
+	def addNotebook
+		@tablesNotebook = TablesNotebook.new(method(:toggleButtons))
+		@qv.pack_start(@tablesNotebook)
+	end
+	#
+	def save
+		if ! $arq
+			dlg = Gtk::FileChooserDialog.new(
+				_("Save as..."),
+				self,
+				Gtk::FileChooser::ACTION_SAVE,
+				nil,
+				[Gtk::Stock::CANCEL, Gtk::Dialog::RESPONSE_CANCEL],
+				[Gtk::Stock::OPEN, Gtk::Dialog::RESPONSE_OK]
+			)
+
+			dlg.run do |r|
+				
+				if r == Gtk::Dialog::RESPONSE_OK
+					$arq = dlg.filename
+				end
+				
+			end
+			dlg.destroy
+		end
+
+		if $arq
+			ios = File.new($arq, 'w')
+			ios.puts @tablesNotebook.to_s
+			ios.close
+
+			@tablesNotebook.setSaved
+		end
+	end
+	#
+	def iptables
+		if $arq
+			@text = IO::read($arq)
+		else
+			@text = IPTInterface.new.read
+		end
+		@tablesNotebook.text = @text.dup
+		@tablesNotebook.page = 0
+	end
+	#
+	def exec
+		show_all
+		iptables
+		@tablesNotebook.curPage.curPage.list.focus = true
+		Gtk.main
+	end
+end
+
+
+=begin
+Ponto de entrada do programa
+Analisamos o argumento de entrada, que deverá ser um nome de arquivo opcional,
+que contenha a saída de um comando "iptables-save". Na ausência deste argumento,
+procederemos com a (tentativa de) execução deste comando para aquisição dos dados,
+o que implicará no programa precisar ser executado por usuário com privilégios de root.
+De qualquer forma, para que seja possível a confirmação dos dados alterados e subsequente
+salvamento destes, é necessária a execução em modo privilegiado!
+
+Program's entry point
+Check input arguments, which should include an optional filename that will contain the
+output of an "iptables-save" command. In the absence of this argument, proceed with 
+=end
+
+opts = GetoptLong.new(
+	['--debug', '-d', GetoptLong::NO_ARGUMENT]
+)
+opts.each do |o, arg|
+	case o
+	when '--depura', '--debug'
+		$DEBUG = true
+	end
+end
+
+$arq = ARGV.shift
+
+ipte = IPTEditor.new
+ipte.exec
+
+#
+# ipteditor - eof

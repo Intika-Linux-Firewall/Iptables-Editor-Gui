@@ -1,0 +1,54 @@
+Change log
+==========
+
+Ipteditor v-0.0.6
+-----------------
+
+(1) Update to ruby-gtk2 v3
+
+Ipteditor v-0.0.5
+-----------------
+
+(1) set a codename for the version: "São João", after the main feast event in June, in the
+	Northeast of Brazil (June 24, feast of the Birth of St. John the Baptist);
+(2) all component modules' names translated to English;
+(3) "New chain" feature modified to implement indication of status change;
+(4) implemented the dialog that informs a chain is still referenced by rules in other chains,
+	when the user clicks the "Delete chain" button;
+(5) changed the behavior of the "Delete rule" button to become disabled when there is no
+	selected rules;
+(6) added a global variable, "$changed", to flag any changes;
+(7) label leds changed to reflect the real state of chains & tables: red means not saved and
+	not applied; yellow means saved or applied (but not both); green means saved and applied.
+
+Ipteditor v-0.0.4
+-----------------
+
+(1) implemented "Save as" dialog; if the filename is not given on the command line,
+	this dialog is presented when button "Save" is clicked;
+(2) continued the task of translation of the names of variables, classes and methods of the scripts 
+	to English language, in order to allow a better understanding of the program by foreigner developers
+	interested in participating of the project;
+(3) added flags to indicate changes to the labels of the tables notebook tabs;
+(4) added a new class, "IPTENotebook", to implement features that are common to the chains and tables
+	notebooks;
+(5) replaced the editing fields for the interfaces by selection boxes, with interface data retrieved
+	from /proc/net/dev;
+(6) corrected some minor bugs related with indication of changes made.
+
+Ipteditor v-0.0.3
+-----------------
+
+(1) started implementing of internationalization (gettext) - base texts converted to english;
+(2) button "Apply"'s function implemented;
+(3) due to a bug found in iptables' "TOS" target, ("-j TOS --set-tos valor/máscara" doesn't work),
+	edition of this target was modified to use only preset symbols (see "iptables -j TOS -h"
+	for information).
+
+Ipteditor v-0.0.2
+-----------------
+
+(1) target dialog implemented;
+(2) visual feedback for changes mades to rules implemented;
+(3) cleaning of visual feedback after saving.
+
