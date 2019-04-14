@@ -21,8 +21,8 @@ require 'gtk2'
 #
 # Variáveis globais
 # Global variables
-$versao = '[0.0.5]'
-$KCODE = 'u'
+$versao = '[0.0.7]'
+$KCODE = "UTF-8" unless RUBY_VERSION > "1.9.0"
 $LOAD_PATH << File.dirname(File.expand_path($0)) + File::SEPARATOR + 'ipteditor-modules'
 
 #

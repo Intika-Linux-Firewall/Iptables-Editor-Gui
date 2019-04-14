@@ -1,6 +1,14 @@
 Change log
 ==========
 
+Ipteditor v-0.0.7
+-----------------
+
+(1) Update readme
+(2) Fix column set_name 
+(3) Fix $KCODE variable
+(4) Directory renamed to english
+
 Ipteditor v-0.0.6
 -----------------
 
