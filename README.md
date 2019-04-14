@@ -20,6 +20,4 @@ sudo ./ipteditor
 
 ![alt text](https://raw.githubusercontent.com/Intika-Linux-Firewall/Iptables-Editor-Gui/master/captures/1.jpeg)
 
-![alt text](https://raw.githubusercontent.com/Intika-Linux-Firewall/Iptables-Editor-Gui/master/captures/2.jpeg)
-
-![alt text](https://raw.githubusercontent.com/Intika-Linux-Firewall/Iptables-Editor-Gui/master/captures/3.jpeg)
+![alt text](https://raw.githubusercontent.com/Intika-Linux-Firewall/Iptables-Editor-Gui/master/captures/2.jpeg)![alt text](https://raw.githubusercontent.com/Intika-Linux-Firewall/Iptables-Editor-Gui/master/captures/3.jpeg)
