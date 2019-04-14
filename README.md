@@ -1,7 +1,7 @@
 # Iptables Editor Gui - Ipteditor
 
-This program is intended to ease the administration of iptables
-This is a fork of http://ipteditor.sourceforge.net/ meant to update the application
+This program is intended to ease the administration of iptables. This is a fork of http://ipteditor.sourceforge.net/ meant to update the application
+
 License - This program is released under the terms of GNU General Public License (GPL).
 
 **Required Packages**
