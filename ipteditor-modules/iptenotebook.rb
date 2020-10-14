@@ -83,7 +83,7 @@ class IPTENotebook < Gtk::Notebook
 		case p.class.to_s
 		when 'String'
 			i = @paginas.index(p)
-		when 'Fixnum'
+		when 'Integer'
 			i = p
 		else
 			i = nil
